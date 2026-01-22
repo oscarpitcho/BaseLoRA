@@ -1,0 +1,32 @@
+[project]
+name = "helical-interview"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "einops>=0.8.0",
+    "helical>=1.5.3",
+    "jaxtyping>=0.2.36",
+    "jupyter>=1.1.1",
+    "scanpy>=1.11.5",
+    "torch>=2.7.0",
+]
+
+[tool.uv]
+override-dependencies = [
+    "louvain ; sys_platform == 'never'"
+]
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[tool.uv.sources]
+torch = { index = "pytorch-cpu" }
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.2",
+]
