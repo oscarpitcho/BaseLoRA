@@ -170,17 +170,20 @@ class AdapterManager:
         self,
         x: Int[Tensor, "batch seq"],
         adapter_name: Optional[str] = None,
-    ) -> Float[Tensor, "batch hidden"]:
+    ) -> Float[Tensor, "batch seq hidden"]:
         """Single-adapter forward pass."""
         if adapter_name is not None:
             self.set_adapters(adapter_name)
-        return self.model(x)
+        output = self.model(x)
+        if hasattr(output, 'last_hidden_state'):
+            return output.last_hidden_state
+        return output
 
     def _run_batched_inference(
         self,
         x: Int[Tensor, "batch seq"],
         adapter_ids: List[str],
-    ) -> Float[Tensor, "batch hidden"]:
+    ) -> Float[Tensor, "batch seq hidden"]:
         """Run batched LoRA inference without caching."""
         unique_adapters = list(set(adapter_ids))
         _, adapter_name_to_idx = self.set_adapters(unique_adapters)
@@ -194,13 +197,17 @@ class AdapterManager:
             layer = self.model.get_submodule(layer_name)
             layer.set_adapter_ids(adapter_idx_tensor)
 
-        return self.model(x)
+        output = self.model(x)
+        # Extract tensor from ModelOutput (works for BertModel, etc.)
+        if hasattr(output, 'last_hidden_state'):
+            return output.last_hidden_state
+        return output
 
     def forward_multi(
         self,
         x: Int[Tensor, "batch seq"],
         adapter_ids: List[str],
-    ) -> Float[Tensor, "batch hidden"]:
+    ) -> Float[Tensor, "batch seq hidden"]:
         """
         Multi-adapter forward pass with per-sample adapter selection.
         
@@ -209,7 +216,7 @@ class AdapterManager:
             adapter_ids: List of adapter names, one per sample. Must have been registered beforehand
         
         Returns:
-            (batch, hidden) embeddings
+            (batch, seq, hidden) hidden states
         """
         if self.cache is None:
             return self._run_batched_inference(x, adapter_ids)
@@ -246,14 +253,14 @@ class AdapterCache:
 
     def __init__(self, max_entries: int = 1000):
         self.max_entries = max_entries
-        self.cache: OrderedDict[Tuple[int, str], Float[Tensor, "hidden"]] = OrderedDict()
+        self.cache: OrderedDict[Tuple[int, str], Float[Tensor, "seq hidden"]] = OrderedDict()
 
     def _make_key(self, input_ids: Int[Tensor, "seq"], adapter: str) -> Tuple[int, str]:
         return (hash(tuple(input_ids.tolist())), adapter)
 
     def get(
         self, input_ids: Int[Tensor, "seq"], adapter: str
-    ) -> Optional[Float[Tensor, "hidden"]]:
+    ) -> Optional[Float[Tensor, "seq hidden"]]:
         key = self._make_key(input_ids, adapter)
         if key in self.cache:
             self.cache.move_to_end(key)
@@ -264,7 +271,7 @@ class AdapterCache:
         self,
         input_ids: Int[Tensor, "seq"],
         adapter: str,
-        embedding: Float[Tensor, "hidden"],
+        embedding: Float[Tensor, "seq hidden"],
     ):
         key = self._make_key(input_ids, adapter)
         if key in self.cache:

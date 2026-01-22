@@ -52,3 +52,7 @@ Adapters are ~1-2% of base model size (~380 MB).
 For repeated (input, adapter) pairs, we cache the output embeddings to skip redundant computation. Uses LRU eviction.
 
 **Memory per entry:** ~2 KB (embedding tensor: `hidden_dim × 4` = 512 × 4 = 2048 bytes). 100K entries ≈ 200 MB — about half the model size. Marginal amount to store in RAM.
+
+
+# TODO: 
+- Targetted injection
